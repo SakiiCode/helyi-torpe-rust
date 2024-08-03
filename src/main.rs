@@ -1,14 +1,15 @@
 use std::cmp;
 use std::io::Cursor;
 
-use ::serenity::all::{CreateAttachment, GetMessages, ReactionType};
 use ab_glyph::{FontRef, PxScale};
 use dotenv::dotenv;
 use imageproc::drawing::draw_text_mut;
 use imageproc::image::{ImageBuffer, Rgb};
+
 use poise::{serenity_prelude as serenity, CreateReply};
 use rand::rngs::SmallRng;
 use rand::{RngCore, SeedableRng};
+use serenity::{CreateAttachment, GetMessages, ReactionType};
 
 struct Data {} // User data, which is stored and accessible in all command invocations
 type Error = Box<dyn std::error::Error + Send + Sync>;
