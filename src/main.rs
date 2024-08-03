@@ -34,16 +34,11 @@ macro_rules! idx {
 async fn help(ctx: Context<'_>) -> Result<(), Error> {
     ctx.say(
         "**A Helyi Törpe parancsai**\n```
-            #bot-spam
-               t.help                          parancsok
-               t.roles                         role-ok listája
-               t.iam <szerep>                  role fel/levétele
-               t.source                        a Helyi Törpe forráskódja
-               t.minesweeper                   aknakereső
-            bárhol
-               t.meme <szöveg>                 legutóbbi képedhez felirat
-               t.poll <kérdés,válasz1,...>     szavazás
-               xd...                             xd```",
+/help                                  parancsok listája
+/source                                link a forráskódhoz
+/minesweeper                           aknakereső
+/meme <szöveg>                         a legutóbb feltöltött képhez felirat
+/poll <kérdés> <válasz1,válasz2,...>   szavazás```",
     )
     .await?;
     Ok(())
@@ -129,7 +124,7 @@ async fn minesweeper(ctx: Context<'_>) -> Result<(), Error> {
 
 #[poise::command(slash_command)]
 async fn source(ctx: Context<'_>) -> Result<(), Error> {
-    ctx.say("https://github.com/SakiiCode/helyi-torpe/blob/master/server.js")
+    ctx.say("https://github.com/SakiiCode/helyi-torpe-rust")
         .await?;
     Ok(())
 }
