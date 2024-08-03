@@ -30,7 +30,7 @@ macro_rules! idx {
     };
 }
 
-#[poise::command(slash_command, prefix_command)]
+#[poise::command(slash_command)]
 async fn help(ctx: Context<'_>) -> Result<(), Error> {
     ctx.say(
         "**A Helyi Törpe parancsai**\n```
@@ -49,7 +49,7 @@ async fn help(ctx: Context<'_>) -> Result<(), Error> {
     Ok(())
 }
 
-#[poise::command(slash_command, prefix_command)]
+#[poise::command(slash_command)]
 async fn poll(
     ctx: Context<'_>,
     #[description = "kérdés"] question: String,
@@ -74,7 +74,7 @@ async fn poll(
     Ok(())
 }
 
-#[poise::command(slash_command, prefix_command)]
+#[poise::command(slash_command)]
 async fn minesweeper(ctx: Context<'_>) -> Result<(), Error> {
     let mut map = vec![0; (MAP_SIZE * MAP_SIZE) as usize];
     let mut rng = SmallRng::from_rng(rand::thread_rng()).unwrap();
@@ -127,7 +127,7 @@ async fn minesweeper(ctx: Context<'_>) -> Result<(), Error> {
     Ok(())
 }
 
-#[poise::command(slash_command, prefix_command)]
+#[poise::command(slash_command)]
 async fn source(ctx: Context<'_>) -> Result<(), Error> {
     ctx.say("https://github.com/SakiiCode/helyi-torpe/blob/master/server.js")
         .await?;
@@ -209,7 +209,7 @@ async fn create_meme(url: &str, text: &str) -> Result<Vec<u8>, Error> {
     return Ok(result_bytes);
 }
 
-#[poise::command(slash_command, prefix_command)]
+#[poise::command(slash_command)]
 async fn meme(ctx: Context<'_>, #[description = "szöveg"] text: String) -> Result<(), Error> {
     let channel = match ctx.guild_channel().await {
         Some(ch) => ch,
@@ -279,10 +279,6 @@ async fn main() {
     let framework = poise::Framework::builder()
         .options(poise::FrameworkOptions {
             commands: vec![minesweeper(), help(), poll(), source(), meme()],
-            prefix_options: poise::PrefixFrameworkOptions {
-                prefix: Some(String::from("t.")),
-                ..Default::default()
-            },
             ..Default::default()
         })
         .setup(|ctx, _ready, framework| {
