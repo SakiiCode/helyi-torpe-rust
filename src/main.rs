@@ -1,8 +1,12 @@
 use std::cmp;
+use std::io::Cursor;
 
-use ::serenity::all::{GuildId, ReactionType};
+use ::serenity::all::{CreateAttachment, GetMessages, ReactionType};
+use ab_glyph::{FontRef, PxScale};
 use dotenv::dotenv;
-use poise::serenity_prelude as serenity;
+use imageproc::drawing::draw_text_mut;
+use imageproc::image::{ImageBuffer, Rgb};
+use poise::{serenity_prelude as serenity, CreateReply};
 use rand::rngs::SmallRng;
 use rand::{RngCore, SeedableRng};
 
@@ -105,7 +109,7 @@ async fn minesweeper(ctx: Context<'_>) -> Result<(), Error> {
         }
     }
 
-    let mut txt = String::from(format!("{MINE_COUNT} akna van elrejtve (könnyű)"));
+    let mut txt = String::from(format!("\n{MINE_COUNT} akna van elrejtve\n"));
 
     for i in 0..MAP_SIZE {
         for j in 0..MAP_SIZE {
@@ -130,6 +134,142 @@ async fn source(ctx: Context<'_>) -> Result<(), Error> {
     Ok(())
 }
 
+async fn create_meme(url: &str, text: &str) -> Result<Vec<u8>, Error> {
+    let font = FontRef::try_from_slice(include_bytes!("Anonymous_Pro.ttf")).unwrap();
+
+    let scale = PxScale { x: 36.0, y: 36.0 };
+    let letter_width = 36.0 / 1.8;
+    let letter_height = 36.0;
+
+    let bigw = 1000;
+
+    let padding = 25;
+    let txtwmax = bigw - 2 * padding;
+    let chars_per_line = f64::floor(txtwmax as f64 / letter_width) as usize;
+
+    let multiline = bwrap::wrap!(&text, chars_per_line);
+    let lines_arr: Vec<&str> = multiline.split("\n").collect();
+
+    let txth = letter_height as u32 * lines_arr.len() as u32;
+
+    //BELSŐ KÉP MÉRETEI
+    let desth = 480;
+    let destw = bigw - 2 * padding;
+
+    // BELSŐ KÉP HELYE
+    let imgy = txth + 2 * padding;
+
+    //NAGY KÉP MAGASSÁGA
+    let bigh = imgy + desth + padding;
+
+    let mut image = ImageBuffer::from_pixel(bigw, bigh, Rgb([255, 255, 255]));
+
+    let mut line_idx = 0;
+    for line in lines_arr {
+        draw_text_mut(
+            &mut image,
+            Rgb([0u8, 0u8, 0u8]),
+            padding as i32,
+            (padding as f32 + line_idx as f32 * letter_height) as i32,
+            scale,
+            &font,
+            &line,
+        );
+        line_idx += 1;
+    }
+
+    let downloaded: Vec<u8> = reqwest::get(url)
+        .await?
+        .bytes()
+        .await?
+        .iter()
+        .map(|b| b.to_owned())
+        .collect();
+
+    let picture = imageproc::image::load_from_memory(&downloaded)?;
+    let resized = picture
+        .resize(
+            destw,
+            desth,
+            imageproc::image::imageops::FilterType::CatmullRom,
+        )
+        .to_rgb8();
+
+    //KÉP HELYE
+    let imgx = bigw / 2 - resized.width() / 2;
+    imageproc::image::imageops::overlay(&mut image, &resized, imgx as i64, imgy as i64);
+
+    //let path = Path::new(&arg);
+    //image.save(path).unwrap();
+    let mut result_bytes: Vec<u8> = Vec::new();
+    image.write_to(
+        &mut Cursor::new(&mut result_bytes),
+        imageproc::image::ImageFormat::Png,
+    )?;
+    return Ok(result_bytes);
+}
+
+#[poise::command(slash_command, prefix_command)]
+async fn meme(ctx: Context<'_>, #[description = "szöveg"] text: String) -> Result<(), Error> {
+    let channel = match ctx.guild_channel().await {
+        Some(ch) => ch,
+        None => {
+            ctx.reply("Ez a parancs még csak szerveren használható")
+                .await?;
+            return Ok(());
+        }
+    };
+
+    let messages = channel
+        .messages(ctx.http(), GetMessages::new().limit(20))
+        .await?;
+
+    let last_attachment = messages
+        .iter()
+        .rev()
+        .filter(|msg| {
+            msg.attachments.len() > 0
+                && (msg
+                    .attachments
+                    .last()
+                    .unwrap()
+                    .filename
+                    .to_lowercase()
+                    .ends_with(".png")
+                    || msg
+                        .attachments
+                        .last()
+                        .unwrap()
+                        .filename
+                        .to_lowercase()
+                        .ends_with(".jpg"))
+        })
+        .map(|msg| msg.attachments.last().unwrap())
+        .last();
+
+    let url = match last_attachment {
+        Some(attachment) => (*attachment).url.clone(),
+        None => {
+            ctx.reply("Nem találtam képet :(").await?;
+            return Ok(());
+        }
+    };
+
+    let result_bytes = match create_meme(&url, &text).await {
+        Ok(result) => result,
+        Err(error) => {
+            ctx.reply(format!("Hiba: {}", error.to_string())).await?;
+            return Ok(());
+        }
+    };
+
+    let builder =
+        CreateReply::default().attachment(CreateAttachment::bytes(result_bytes, "result.png"));
+    ctx.send(builder).await?;
+
+    Ok(())
+}
+
 #[tokio::main]
 async fn main() {
     dotenv().ok(); // This line loads the environment variables from the ".env" file.
@@ -138,9 +278,9 @@ async fn main() {
 
     let framework = poise::Framework::builder()
         .options(poise::FrameworkOptions {
-            commands: vec![minesweeper(), help(), poll(), source()],
+            commands: vec![minesweeper(), help(), poll(), source(), meme()],
             prefix_options: poise::PrefixFrameworkOptions {
-                prefix: Some("t.".into()),
+                prefix: Some(String::from("t.")),
                 ..Default::default()
             },
             ..Default::default()
@@ -153,8 +293,13 @@ async fn main() {
         })
         .build();
 
-    let client = serenity::ClientBuilder::new(token, intents)
+    let mut client = serenity::ClientBuilder::new(token, intents)
         .framework(framework)
-        .await;
-    client.unwrap().start().await.unwrap();
+        .await
+        .expect("Error building client");
+    println!("Client built");
+
+    if let Err(why) = client.start().await {
+        println!("Client error: {:?}", why);
+    }
 }
