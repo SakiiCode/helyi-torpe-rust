@@ -23,12 +23,12 @@ const DG: [&str; 10] = [
 const POLL_CHARS: [char; 11] = ['🇦', '🇧', '🇨', '🇩', '🇪', '🇫', '🇬', '🇭', '🇮', '🇯', '🇰'];
 
 const MINE_COUNT: u32 = 10;
-const MAP_SIZE: u32 = 9;
+const MAP_SIZE: usize = 9;
 
 macro_rules! idx {
     // `()` indicates that the macro takes no argument.
     ($map:expr, $x:expr, $y:expr) => {
-        $map[($x * MAP_SIZE + $y) as usize]
+        $map[($x * (MAP_SIZE + 2) + $y) as usize]
     };
 }
 
@@ -72,34 +72,28 @@ async fn poll(
 
 #[poise::command(slash_command)]
 async fn minesweeper(ctx: Context<'_>) -> Result<(), Error> {
-    let mut map = vec![0; (MAP_SIZE * MAP_SIZE) as usize];
+    let mut map = [0; (MAP_SIZE + 2) * (MAP_SIZE + 2)];
     let mut rng = SmallRng::from_rng(rand::thread_rng()).unwrap();
 
     for _ in 0..MINE_COUNT {
         let mut x;
         let mut y;
         loop {
-            x = rng.next_u32() % MAP_SIZE;
-            y = rng.next_u32() % MAP_SIZE;
+            x = 1 + (rng.next_u32() as usize % MAP_SIZE);
+            y = 1 + (rng.next_u32() as usize % MAP_SIZE);
             if idx!(map, x, y) != 9 {
                 break;
             }
         }
 
-        map[(x * MAP_SIZE + y) as usize] = 9;
+        idx!(map, x, y) = 9;
 
-        for j in -1..=1 {
-            for k in -1..=1 {
-                let i_x: i32 = i32::try_from(x).unwrap() + j;
-                let i_y: i32 = i32::try_from(y).unwrap() + k;
-
-                if i_x > -1 && i_y > -1 {
-                    let u_x: u32 = i_x.try_into().unwrap();
-                    let u_y: u32 = i_y.try_into().unwrap();
-
-                    if u_x < MAP_SIZE && u_y < MAP_SIZE && idx!(map, u_x, u_y) != 9 {
-                        idx!(map, u_x, u_y) += 1;
-                    }
+        for j in 0..=2 {
+            for k in 0..=2 {
+                let x2 = x + j - 1;
+                let y2 = y + k - 1;
+                if idx!(map, x2, y2) != 9 {
+                    idx!(map, x2, y2) += 1;
                 }
             }
         }
@@ -107,8 +101,8 @@ async fn minesweeper(ctx: Context<'_>) -> Result<(), Error> {
 
     let mut txt = format!("\n{MINE_COUNT} akna van elrejtve\n");
 
-    for i in 0..MAP_SIZE {
-        for j in 0..MAP_SIZE {
+    for i in 1..=MAP_SIZE {
+        for j in 1..=MAP_SIZE {
             if idx!(map, i, j) != 9 {
                 txt.push_str(format!("||  :{}:  ||  ", DG[idx!(map, i, j)]).as_str());
             } else {
