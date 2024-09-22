@@ -1,3 +1,4 @@
+#![allow(clippy::needless_return)]
 use std::cmp;
 use std::io::Cursor;
 
@@ -51,8 +52,8 @@ async fn poll(
     #[description = "kérdés"] question: String,
     #[description = "válasz1,..."] answers: String,
 ) -> Result<(), Error> {
-    let mut reply = String::from(format!("__Szavazás: **{}**__\n", question));
-    let answer_arr = answers.split(",").collect::<Vec<&str>>();
+    let mut reply = format!("__Szavazás: **{}**__\n", question);
+    let answer_arr = answers.split(',').collect::<Vec<&str>>();
     let answer_size = cmp::min(answer_arr.len(), 11);
     for i in 0..answer_size {
         reply.push_str(format!("{}:{}\n", POLL_CHARS[i], answer_arr[i]).as_str());
@@ -61,8 +62,7 @@ async fn poll(
     let message = ctx.say(reply).await?;
     let msg = message.into_message().await?;
 
-    for i in 0..answer_size {
-        let char = POLL_CHARS[i];
+    for char in POLL_CHARS.iter().take(answer_size) {
         msg.react(ctx.http(), ReactionType::Unicode(char.to_string()))
             .await?;
     }
@@ -105,7 +105,7 @@ async fn minesweeper(ctx: Context<'_>) -> Result<(), Error> {
         }
     }
 
-    let mut txt = String::from(format!("\n{MINE_COUNT} akna van elrejtve\n"));
+    let mut txt = format!("\n{MINE_COUNT} akna van elrejtve\n");
 
     for i in 0..MAP_SIZE {
         for j in 0..MAP_SIZE {
@@ -144,7 +144,7 @@ async fn create_meme(url: &str, text: &str) -> Result<Vec<u8>, Error> {
     let chars_per_line = f64::floor(txtwmax as f64 / letter_width) as usize;
 
     let multiline = bwrap::wrap!(&text, chars_per_line);
-    let lines_arr: Vec<&str> = multiline.split("\n").collect();
+    let lines_arr: Vec<&str> = multiline.split('\n').collect();
 
     let txth = letter_height as u32 * lines_arr.len() as u32;
 
@@ -160,8 +160,7 @@ async fn create_meme(url: &str, text: &str) -> Result<Vec<u8>, Error> {
 
     let mut image = ImageBuffer::from_pixel(bigw, bigh, Rgb([255, 255, 255]));
 
-    let mut line_idx = 0;
-    for line in lines_arr {
+    for (line_idx, line) in lines_arr.into_iter().enumerate() {
         draw_text_mut(
             &mut image,
             Rgb([0u8, 0u8, 0u8]),
@@ -169,9 +168,8 @@ async fn create_meme(url: &str, text: &str) -> Result<Vec<u8>, Error> {
             (padding as f32 + line_idx as f32 * letter_height) as i32,
             scale,
             &font,
-            &line,
+            line,
         );
-        line_idx += 1;
     }
 
     let downloaded: Vec<u8> = reqwest::get(url)
@@ -202,7 +200,7 @@ async fn create_meme(url: &str, text: &str) -> Result<Vec<u8>, Error> {
         &mut Cursor::new(&mut result_bytes),
         imageproc::image::ImageFormat::Png,
     )?;
-    return Ok(result_bytes);
+    Ok(result_bytes)
 }
 
 #[poise::command(slash_command)]
@@ -224,27 +222,17 @@ async fn meme(ctx: Context<'_>, #[description = "szöveg"] text: String) -> Resu
         .iter()
         .rev()
         .filter(|msg| {
-            msg.attachments.len() > 0
-                && (msg
-                    .attachments
-                    .last()
-                    .unwrap()
-                    .filename
-                    .to_lowercase()
-                    .ends_with(".png")
-                    || msg
-                        .attachments
-                        .last()
-                        .unwrap()
-                        .filename
-                        .to_lowercase()
-                        .ends_with(".jpg"))
+            if !msg.attachments.is_empty() {
+                let last_filename = msg.attachments.last().unwrap().filename.to_lowercase();
+                return last_filename.ends_with(".png") || last_filename.ends_with(".jpg");
+            }
+            return false;
         })
         .map(|msg| msg.attachments.last().unwrap())
         .last();
 
     let url = match last_attachment {
-        Some(attachment) => (*attachment).url.clone(),
+        Some(attachment) => attachment.url.clone(),
         None => {
             ctx.reply("Nem találtam képet :(").await?;
             return Ok(());
@@ -254,7 +242,7 @@ async fn meme(ctx: Context<'_>, #[description = "szöveg"] text: String) -> Resu
     let result_bytes = match create_meme(&url, &text).await {
         Ok(result) => result,
         Err(error) => {
-            ctx.reply(format!("Hiba: {}", error.to_string())).await?;
+            ctx.reply(format!("Hiba: {}", error)).await?;
             return Ok(());
         }
     };
