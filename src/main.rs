@@ -1,11 +1,10 @@
-#![allow(clippy::needless_return)]
-use std::cmp;
 use std::io::Cursor;
 
 use ab_glyph::{FontRef, PxScale};
 use dotenv::dotenv;
 use imageproc::drawing::draw_text_mut;
-use imageproc::image::{ImageBuffer, Rgb};
+use imageproc::image::imageops::{self, FilterType};
+use imageproc::image::{ImageBuffer, ImageFormat, Rgb};
 
 use poise::{serenity_prelude as serenity, CreateReply};
 use rand::rngs::SmallRng;
@@ -54,7 +53,7 @@ async fn poll(
 ) -> Result<(), Error> {
     let mut reply = format!("__Szavazás: **{}**__\n", question);
     let answer_arr = answers.split(',').collect::<Vec<&str>>();
-    let answer_size = cmp::min(answer_arr.len(), 11);
+    let answer_size = usize::min(answer_arr.len(), 11);
     for i in 0..answer_size {
         reply.push_str(format!("{}:{}\n", POLL_CHARS[i], answer_arr[i]).as_str());
     }
@@ -125,7 +124,7 @@ async fn source(ctx: Context<'_>) -> Result<(), Error> {
 }
 
 async fn create_meme(url: &str, text: &str) -> Result<Vec<u8>, Error> {
-    let font = FontRef::try_from_slice(include_bytes!("Anonymous_Pro.ttf")).unwrap();
+    let font = FontRef::try_from_slice(include_bytes!("Anonymous_Pro.ttf"))?;
 
     let scale = PxScale { x: 36.0, y: 36.0 };
     let letter_width = 36.0 / 1.8;
@@ -171,29 +170,22 @@ async fn create_meme(url: &str, text: &str) -> Result<Vec<u8>, Error> {
         .bytes()
         .await?
         .iter()
-        .map(|b| b.to_owned())
+        .cloned()
         .collect();
 
     let picture = imageproc::image::load_from_memory(&downloaded)?;
     let resized = picture
-        .resize(
-            destw,
-            desth,
-            imageproc::image::imageops::FilterType::CatmullRom,
-        )
+        .resize(destw, desth, FilterType::CatmullRom)
         .to_rgb8();
 
     //KÉP HELYE
     let imgx = bigw / 2 - resized.width() / 2;
-    imageproc::image::imageops::overlay(&mut image, &resized, imgx as i64, imgy as i64);
+    imageops::overlay(&mut image, &resized, imgx as i64, imgy as i64);
 
     //let path = Path::new(&arg);
     //image.save(path).unwrap();
     let mut result_bytes: Vec<u8> = Vec::new();
-    image.write_to(
-        &mut Cursor::new(&mut result_bytes),
-        imageproc::image::ImageFormat::Png,
-    )?;
+    image.write_to(&mut Cursor::new(&mut result_bytes), ImageFormat::Png)?;
     Ok(result_bytes)
 }
 
