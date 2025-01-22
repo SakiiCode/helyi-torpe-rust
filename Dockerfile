@@ -1,13 +1,14 @@
-FROM rust:1.84 as builder
+FROM rust:1.84-alpine as builder
 WORKDIR /usr/src/helyi-torpe
+RUN apk add musl-dev openssl-dev openssl-libs-static
 COPY . .
 RUN cargo install --path .
 
-FROM debian:bookworm-slim
+FROM alpine
 
-RUN groupadd -r torpe && useradd -r -g torpe torpe
+RUN addgroup -S torpe && adduser -S torpe -G torpe
 
-RUN apt-get update && apt-get install -y libssl3 && rm -rf /var/lib/apt/lists/*
+RUN apk add libssl3
 COPY --from=builder /usr/local/cargo/bin/helyi-torpe /usr/local/bin/helyi-torpe
 
 USER torpe
