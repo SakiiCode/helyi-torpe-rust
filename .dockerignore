@@ -1,0 +1,7 @@
+/target
+/.git
+/.env
+/.vscode
+/.gitignore
+/README.md
+/Dockerfile

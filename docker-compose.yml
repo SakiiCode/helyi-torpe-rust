@@ -1,0 +1,8 @@
+services:
+  client:
+    image: helyi-torpe:latest
+    build:
+      context: .
+    init: true
+    environment:
+      - DISCORD_TOKEN=
