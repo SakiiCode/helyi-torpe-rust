@@ -5,4 +5,4 @@ services:
       context: .
     init: true
     environment:
-      - DISCORD_TOKEN=
+      - DISCORD_TOKEN=${DISCORD_TOKEN}

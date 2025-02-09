@@ -8,7 +8,6 @@ FROM alpine
 
 RUN addgroup -S torpe && adduser -S torpe -G torpe
 
-RUN apk add libssl3
 COPY --from=builder /usr/local/cargo/bin/helyi-torpe /usr/local/bin/helyi-torpe
 
 USER torpe
